@@ -1,10 +1,10 @@
 ---
-title: About Me
+title: About
 ---
 
 I'm starting another website.  While this form is currently a blog, the actual functionality is the same as Wikipedia with an ever-updating-iterative history.  My first post is meta-commentary on this [blog](../blog).
 
-The previous blog is [here](https://www.old.spencers.dev)
+The previous blog will soon be reuploaded [here](https://www.old.spencers.dev)
 
 ---
 
