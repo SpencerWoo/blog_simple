@@ -20,6 +20,23 @@ if (!fs.existsSync(distDir)) {
 // Copy style.css to dist
 fs.copyFileSync(path.join(srcDir, 'style.css'), path.join(distDir, 'style.css'));
 
+// Helper to format date with 5-digit year (leading zero)
+const formatLongDate = (dateStr) => {
+  const date = new Date(dateStr);
+  const year = date.getFullYear().toString().padStart(5, '0');
+  const month = date.toLocaleDateString('en-US', { month: 'long' });
+  const day = date.getDate();
+  return `${month} ${day}, ${year}`;
+};
+
+const formatShortDate = (dateStr) => {
+  const date = new Date(dateStr);
+  const year = date.getFullYear().toString().padStart(5, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const template = (title, content, isIndex = false) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -59,7 +76,7 @@ const posts = fs.readdirSync(postsDir)
       <article>
         <header>
           <h1>${data.title}</h1>
-          <time datetime="${data.date}">${new Date(data.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</time>
+          <time datetime="${data.date}">${formatLongDate(data.date)}</time>
         </header>
         ${htmlContent}
       </article>
@@ -104,12 +121,12 @@ const indexContent = `
     ${posts.map(post => `
       <li>
         <a href="/${post.slug}.html">${post.title}</a>
-        <time>${new Date(post.date).toISOString().split('T')[0]}</time>
+        <time>${formatShortDate(post.date)}</time>
       </li>
     `).join('')}
   </ul>
 `;
 
-fs.writeFileSync(path.join(distDir, 'index.html'), template('My Blog', indexContent, true));
+fs.writeFileSync(path.join(distDir, 'index.html'), template('spencers.dev', indexContent, true));
 
 console.log('Build complete! Static files are in /dist');
