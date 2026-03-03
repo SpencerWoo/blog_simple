@@ -8,6 +8,7 @@ const md = require('markdown-it')({
 const matter = require('gray-matter');
 
 const postsDir = path.join(__dirname, 'posts');
+const pagesDir = path.join(__dirname, 'pages');
 const srcDir = path.join(__dirname, 'src');
 const distDir = path.join(__dirname, 'dist');
 
@@ -30,11 +31,17 @@ const template = (title, content, isIndex = false) => `
 </head>
 <body>
   <header>
-    <a href="/">${isIndex ? '<h1>My Blog</h1>' : 'My Blog'}</a>
+    <a href="/">${isIndex ? '<h1>spencers.dev</h1>' : 'spencers.dev'}</a>
+    <nav>
+      <a href="/about.html">About</a>
+    </nav>
   </header>
   <main>
     ${content}
   </main>
+  <footer class="banner">
+    Support via ETH, Base, Polygon : 0x325282bfda3Eb0Aa52C70989c61Ae218100Ffaa6
+  </footer>
 </body>
 </html>
 `;
@@ -67,6 +74,29 @@ const posts = fs.readdirSync(postsDir)
     };
   })
   .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+// Build static pages (e.g., about.md)
+if (fs.existsSync(pagesDir)) {
+  fs.readdirSync(pagesDir)
+    .filter(file => file.endsWith('.md'))
+    .forEach(file => {
+      const filePath = path.join(pagesDir, file);
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      const { data, content } = matter(fileContent);
+      const htmlContent = md.render(content);
+      const slug = file.replace('.md', '');
+      const pageHtml = template(data.title, `
+        <article>
+          <header>
+            <h1>${data.title}</h1>
+          </header>
+          ${htmlContent}
+        </article>
+      `);
+
+      fs.writeFileSync(path.join(distDir, `${slug}.html`), pageHtml);
+    });
+}
 
 // Build index
 const indexContent = `
