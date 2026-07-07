@@ -12,15 +12,12 @@ const pagesDir = path.join(__dirname, 'pages');
 const srcDir = path.join(__dirname, 'src');
 const distDir = path.join(__dirname, 'dist');
 
-// Create dist directory if it doesn't exist
 if (!fs.existsSync(distDir)) {
   fs.mkdirSync(distDir);
 }
 
-// Copy style.css to dist
 fs.copyFileSync(path.join(srcDir, 'style.css'), path.join(distDir, 'style.css'));
 
-// Helper to format date with 5-digit year (leading zero)
 const formatLongDate = (dateStr) => {
   const date = new Date(dateStr);
   const year = date.getFullYear().toString().padStart(5, '0');
@@ -29,15 +26,7 @@ const formatLongDate = (dateStr) => {
   return `${month} ${day}, ${year}`;
 };
 
-const formatShortDate = (dateStr) => {
-  const date = new Date(dateStr);
-  const year = date.getFullYear().toString().padStart(5, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const template = (title, content, isIndex = false) => `
+const template = (title, content, isIndex = false, extraHead = '') => `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,12 +34,14 @@ const template = (title, content, isIndex = false) => `
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
   <link rel="stylesheet" href="/style.css">
+  ${extraHead}
 </head>
 <body>
   <header>
-    <a href="/">${isIndex ? '<h1>spencers.dev</h1>' : 'spencers.dev'}</a>
+    <a href="/">${isIndex ? '<h1>blog.spencers.dev</h1>' : 'blog.spencers.dev'}</a>
     <nav>
       <a href="/about.html">About</a>
+      <a href="/sitemap.html">Sitemap</a>
     </nav>
   </header>
   <main>
@@ -62,6 +53,21 @@ const template = (title, content, isIndex = false) => `
 </body>
 </html>
 `;
+
+function extractInternalLinks(html, knownSlugs) {
+  const linkRegex = /<a[^>]*href="([^"]+)"/gi;
+  const links = [];
+  let match;
+  while ((match = linkRegex.exec(html)) !== null) {
+    const href = match[1];
+    if (href.startsWith('http') || href.startsWith('#') || href.startsWith('//') || href.startsWith('mailto:')) continue;
+    const slug = href.replace(/.*\//, '').replace('.html', '');
+    if (slug && knownSlugs.has(slug)) {
+      links.push(slug);
+    }
+  }
+  return [...new Set(links)];
+}
 
 // Build posts
 const posts = fs.readdirSync(postsDir)
@@ -76,7 +82,7 @@ const posts = fs.readdirSync(postsDir)
       <article>
         <header>
           <h1>${data.title}</h1>
-          <time datetime="${data.date}">${formatLongDate(data.date)}</time>
+          ${data.date ? `<time datetime="${data.date}">${formatLongDate(data.date)}</time>` : ''}
         </header>
         ${htmlContent}
       </article>
@@ -84,15 +90,17 @@ const posts = fs.readdirSync(postsDir)
 
     fs.writeFileSync(path.join(distDir, `${slug}.html`), postHtml);
 
-    return {
-      title: data.title,
-      date: data.date,
-      slug: slug
-    };
+    return { title: data.title, date: data.date, slug, html: htmlContent };
   })
-  .sort((a, b) => new Date(b.date) - new Date(a.date));
+  .sort((a, b) => {
+    if (a.date && b.date) return new Date(b.date) - new Date(a.date);
+    if (a.date) return -1;
+    if (b.date) return 1;
+    return 0;
+  });
 
-// Build static pages (e.g., about.md)
+// Build static pages
+const pages = [];
 if (fs.existsSync(pagesDir)) {
   fs.readdirSync(pagesDir)
     .filter(file => file.endsWith('.md'))
@@ -112,21 +120,132 @@ if (fs.existsSync(pagesDir)) {
       `);
 
       fs.writeFileSync(path.join(distDir, `${slug}.html`), pageHtml);
+
+      pages.push({ title: data.title, slug, html: htmlContent });
     });
 }
 
-// Build index
+// Build graph data from internal links
+const allNodes = [...posts, ...pages];
+const knownSlugs = new Set(allNodes.map(n => n.slug));
+
+const nodes = allNodes.map(n => ({ id: n.slug, title: n.title }));
+
+const edgeSet = new Set();
+const edges = [];
+allNodes.forEach(source => {
+  const targets = extractInternalLinks(source.html, knownSlugs);
+  targets.forEach(target => {
+    if (target === source.slug) return;
+    const key = `${source.slug}->${target}`;
+    if (!edgeSet.has(key)) {
+      edgeSet.add(key);
+      edges.push({ source: source.slug, target });
+    }
+  });
+});
+
+const graphJson = JSON.stringify({ nodes, edges });
+
+// Build sitemap page
+const sitemapContent = `
+  <article>
+    <header>
+      <h1>Sitemap</h1>
+    </header>
+    Another sitemap listing all links: 
+    <ul>
+      ${allNodes
+        .sort((a, b) => a.title.localeCompare(b.title))
+        .map(n => `<li><a href="/${n.slug}.html">${n.title}</a></li>`)
+        .join('\n      ')}
+    </ul>
+  </article>
+`;
+fs.writeFileSync(path.join(distDir, 'sitemap.html'), template('Sitemap', sitemapContent));
+
+// Build index with graph visualization
 const indexContent = `
-  <ul class="post-list">
-    ${posts.map(post => `
-      <li>
-        <a href="/${post.slug}.html">${post.title}</a>
-        <time>${formatShortDate(post.date)}</time>
-      </li>
-    `).join('')}
-  </ul>
+<div id="graph"></div>
+<script>
+(function() {
+  var data = ${graphJson};
+
+  var container = document.getElementById('graph');
+  var width = container.clientWidth || 800;
+  var height = Math.max(500, Math.min(800, width * 0.65));
+
+  var svg = d3.select('#graph').append('svg')
+    .attr('width', width)
+    .attr('height', height);
+
+  var g = svg.append('g');
+
+  svg.call(d3.zoom().scaleExtent([0.3, 5]).on('zoom', function(event) {
+    g.attr('transform', event.transform);
+  }));
+
+  var simulation = d3.forceSimulation(data.nodes)
+    .force('link', d3.forceLink(data.edges).id(function(d) { return d.id; }).distance(80))
+    .force('charge', d3.forceManyBody().strength(-150))
+    .force('center', d3.forceCenter(width / 2, height / 2));
+
+  var link = g.append('g')
+    .selectAll('line')
+    .data(data.edges)
+    .join('line')
+    .attr('stroke', '#ccc')
+    .attr('stroke-width', 1);
+
+  var node = g.append('g')
+    .selectAll('g')
+    .data(data.nodes)
+    .join('g')
+    .style('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start', function(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      })
+      .on('drag', function(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+      })
+      .on('end', function(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      }))
+    .on('click', function(event, d) {
+      window.location.href = '/' + d.id + '.html';
+    });
+
+  node.append('circle')
+    .attr('r', 5)
+    .attr('fill', '#007bff')
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 1.5);
+
+  node.append('text')
+    .text(function(d) { return d.title; })
+    .attr('x', 8)
+    .attr('y', 4)
+    .attr('font-size', '12px')
+    .attr('fill', '#333');
+
+  simulation.on('tick', function() {
+    link
+      .attr('x1', function(d) { return d.source.x; })
+      .attr('y1', function(d) { return d.source.y; })
+      .attr('x2', function(d) { return d.target.x; })
+      .attr('y2', function(d) { return d.target.y; });
+    node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
+  });
+})();
+</script>
 `;
 
-fs.writeFileSync(path.join(distDir, 'index.html'), template('spencers.dev', indexContent, true));
+fs.writeFileSync(path.join(distDir, 'index.html'), template('spencers.dev', indexContent, true, '<script src="https://d3js.org/d3.v7.min.js"></script>'));
 
 console.log('Build complete! Static files are in /dist');

@@ -61,3 +61,12 @@ server {
 
 ## Customizing Styles
 Edit `src/style.css` to change fonts, colors, or layouts.
+
+---
+
+future investigations:
+* IQ (Background, Assumptions, Reality, Research, Questions)
+* Polymarket (Gambling, Risk, Strategies, Hidden, Direction, Specifics)
+* Time (Base, Extraneous, Behavior)
+* Was I wrong? (Voice, Bitcoin, Insider Trading, Self-Driving)
+* They are wrong (Nuclear, Dating, AI)

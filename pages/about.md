@@ -2,15 +2,10 @@
 title: About
 ---
 
-I'm starting another website.  While this form is currently a blog, the actual functionality is the same as Wikipedia with an ever-updating-iterative history.  My first post is meta-commentary on this [blog](../blog.html).
-
-The previous blog will soon be reuploaded [here](https://www.old.spencers.dev)
+The previous blog was typical; posts dated in time.  This structure is designed around value that decays over time (recent blogs take precedence and are more valuable than old blog posts).  Another way to phrase this is that older posts decay and lose value.
 
 ---
 
-future investigations:
-* IQ (Background, Assumptions, Reality, Research, Questions)
-* Polymarket (Gambling, Risk, Strategies, Hidden, Direction, Specifics)
-* Time (Base, Extraneous, Behavior)
-* Was I wrong? (Voice, Bitcoin, Insider Trading, Self-Driving)
-* They are wrong (Nuclear, Dating, AI)
+This relaunch is an attempt of a different structure; one that aims to retain (if not increase) in value over one, ten, one thousand years.
+
+The intelligent conceptualization of increasing in value over time is forecasting.  However, I'm instead choosing a more enjoyable form for me -- an ever-updating-iterative topic blog.  Wikipedia-style; progressive and ever building.
