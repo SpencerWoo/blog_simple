@@ -12,9 +12,10 @@ const pagesDir = path.join(__dirname, 'pages');
 const srcDir = path.join(__dirname, 'src');
 const distDir = path.join(__dirname, 'dist');
 
-if (!fs.existsSync(distDir)) {
-  fs.mkdirSync(distDir);
+if (fs.existsSync(distDir)) {
+  fs.rmSync(distDir, { recursive: true, force: true });
 }
+fs.mkdirSync(distDir);
 
 fs.copyFileSync(path.join(srcDir, 'style.css'), path.join(distDir, 'style.css'));
 
@@ -54,24 +55,40 @@ const template = (title, content, isIndex = false, extraHead = '') => `
 </html>
 `;
 
-function extractInternalLinks(html, knownSlugs) {
+function extractInternalLinks(html, knownSlugs, sourceSlug) {
   const linkRegex = /<a[^>]*href="([^"]+)"/gi;
   const links = [];
   let match;
   while ((match = linkRegex.exec(html)) !== null) {
     const href = match[1];
     if (href.startsWith('http') || href.startsWith('#') || href.startsWith('//') || href.startsWith('mailto:')) continue;
-    const slug = href.replace(/.*\//, '').replace('.html', '');
-    if (slug && knownSlugs.has(slug)) {
-      links.push(slug);
+    const sourceDir = sourceSlug.includes('/') ? sourceSlug.substring(0, sourceSlug.lastIndexOf('/')) : '';
+    const base = '/' + (sourceDir ? sourceDir + '/' : '');
+    const resolved = path.posix.resolve(base, href).replace(/^\//, '').replace('.html', '');
+    if (resolved && knownSlugs.has(resolved)) {
+      links.push(resolved);
     }
   }
   return [...new Set(links)];
 }
 
+function walkDir(dir, baseDir = '') {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue;
+    const relPath = baseDir ? path.posix.join(baseDir, entry.name) : entry.name;
+    if (entry.isDirectory()) {
+      files.push(...walkDir(path.join(dir, entry.name), relPath));
+    } else if (entry.name.endsWith('.md')) {
+      files.push(relPath);
+    }
+  }
+  return files;
+}
+
 // Build posts
-const posts = fs.readdirSync(postsDir)
-  .filter(file => file.endsWith('.md'))
+const posts = walkDir(postsDir)
   .map(file => {
     const filePath = path.join(postsDir, file);
     const fileContent = fs.readFileSync(filePath, 'utf8');
@@ -88,7 +105,9 @@ const posts = fs.readdirSync(postsDir)
       </article>
     `);
 
-    fs.writeFileSync(path.join(distDir, `${slug}.html`), postHtml);
+    const outPath = path.join(distDir, `${slug}.html`);
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, postHtml);
 
     return { title: data.title, date: data.date, slug, html: htmlContent };
   })
@@ -134,7 +153,7 @@ const nodes = allNodes.map(n => ({ id: n.slug, title: n.title }));
 const edgeSet = new Set();
 const edges = [];
 allNodes.forEach(source => {
-  const targets = extractInternalLinks(source.html, knownSlugs);
+  const targets = extractInternalLinks(source.html, knownSlugs, source.slug);
   targets.forEach(target => {
     if (target === source.slug) return;
     const key = `${source.slug}->${target}`;
