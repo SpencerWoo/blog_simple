@@ -39,7 +39,7 @@ const template = (title, content, isIndex = false, extraHead = '') => `
 </head>
 <body>
   <header>
-    <a href="/">${isIndex ? '<h1>blog.spencers.dev</h1>' : 'blog.spencers.dev'}</a>
+    <a href="/">[WIP] ${isIndex ? '<h1>test.spencers.dev</h1>' : 'test.spencers.dev'}</a>
     <nav>
       <a href="/about.html">About</a>
       <a href="/sitemap.html">Sitemap</a>
